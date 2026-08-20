@@ -1,0 +1,10 @@
+# Runtime artifacts
+.build/
+build/
+*.xcuserdata
+
+# macOS
+.DS_Store
+
+# Local helper logs
+*.log
