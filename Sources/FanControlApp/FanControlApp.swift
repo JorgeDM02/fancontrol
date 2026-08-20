@@ -252,6 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
 struct MenuBarContent: View {
     @ObservedObject var vm: DashboardViewModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -265,8 +266,8 @@ struct MenuBarContent: View {
             Divider()
 
             Button("Open FanControl") {
+                openWindow(id: "main")
                 NSApp.activate(ignoringOtherApps: true)
-                NSApp.windows.first { $0.canBecomeMain }?.makeKeyAndOrderFront(nil)
             }
 
             Button(vm.isTakingControl ? "Release control" : "Take control") {
