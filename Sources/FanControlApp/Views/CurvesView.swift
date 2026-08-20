@@ -23,11 +23,23 @@ struct CurvesView: View {
 
                 List(selection: $selectedID) {
                     ForEach(vm.curveStore.curves) { curve in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(curve.name)
-                            Text("\(fansLabel(curve)) · \(curve.sensorKey) · \(curve.points.count) pts")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(curve.name)
+                                Text("\(fansLabel(curve)) · \(curve.sensorKey) · \(curve.points.count) pts")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Toggle("Engage", isOn: Binding(
+                                get: { curve.isEnabled },
+                                set: { on in
+                                    if on { vm.engageCurve(curve) }
+                                    else { vm.disengageCurve(curve) }
+                                }
+                            ))
+                            .labelsHidden()
+                            .controlSize(.mini)
                         }
                         .tag(curve.id)
                         .contextMenu {
@@ -498,7 +510,7 @@ struct NewCurveSheet: View {
                 Button("Create") {
                     let points = defaultPoints()
                     onCreate(FanCurve(name: name, fanIndices: fanSet.sorted(),
-                                      sensorKey: sensorKey, points: points))
+                                      sensorKey: sensorKey, points: points, isEnabled: false))
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)

@@ -37,6 +37,7 @@ let package = Package(
             path: "Sources/FanControlApp",
             exclude: ["Resources/Info.plist"],
             linkerSettings: [
+                .linkedFramework("ServiceManagement"),
                 .unsafeFlags([
                     "-Xlinker", "-sectcreate",
                     "-Xlinker", "__TEXT",

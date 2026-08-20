@@ -15,8 +15,14 @@ struct FanControlApp: App {
             CommandGroup(replacing: .newItem) { }
         }
 
-        MenuBarExtra("FanControl", systemImage: "fan") {
+        Settings {
+            SettingsView(vm: appDelegate.vm, settings: .shared)
+        }
+
+        MenuBarExtra {
             MenuBarContent(vm: appDelegate.vm)
+        } label: {
+            MenuBarLabel(vm: appDelegate.vm)
         }
         .menuBarExtraStyle(.menu)
     }
@@ -206,6 +212,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         NSApp.setActivationPolicy(.regular)
         vm.start()
 
+        // Started at login with "Start minimized": dock the main window so
+        // it doesn't steal focus. Only applies when we're not the active app.
+        if AppSettings.shared.launchAtLogin && AppSettings.shared.launchMinimized {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                if !NSApp.isActive {
+                    NSApp.windows.first { $0.canBecomeMain }?.miniaturize(nil)
+                }
+            }
+        }
+
         NotificationCenter.default.addObserver(
             self, selector: #selector(windowDidBecomeMain(_:)),
             name: NSWindow.didBecomeMainNotification, object: nil
@@ -248,6 +264,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     }
 }
 
+// MARK: - Menu bar label
+
+/// Shows the fan icon plus, when enabled, a compact live temperature readout
+/// for the user-selected sensor source.
+struct MenuBarLabel: View {
+    @ObservedObject var vm: DashboardViewModel
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "fan")
+            if vm.settings.showMenuTemp, let sensor = vm.menuBarTemp {
+                Text("\(Int(sensor.celsius))°C")
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+            }
+        }
+    }
+}
+
 // MARK: - Menu bar content
 
 struct MenuBarContent: View {
@@ -256,8 +291,8 @@ struct MenuBarContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if let t = vm.cpuTemp, let label = vm.cpuTempLabel {
-                Label("\(label) \(Int(t))°C", systemImage: "cpu")
+            if vm.settings.showMenuTemp, let sensor = vm.menuBarTemp {
+                Label("\(sensor.label) \(Int(sensor.celsius))°C", systemImage: "thermometer")
             }
             ForEach(vm.fans) { fan in
                 Label("Fan \(fan.index): \(Int(fan.actualRPM)) rpm", systemImage: "fan")

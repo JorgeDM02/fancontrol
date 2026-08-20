@@ -88,7 +88,7 @@ public struct FanCurve: Codable, Sendable, Hashable, Identifiable {
         }
         sensorKey = try c.decode(String.self, forKey: .sensorKey)
         points = try c.decodeIfPresent([CurvePoint].self, forKey: .points) ?? []
-        isEnabled = try c.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        isEnabled = try c.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {

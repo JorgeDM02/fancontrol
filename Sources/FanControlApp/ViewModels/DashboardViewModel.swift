@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import FanControlCore
 
 /// What the app *wants* each fan to do. Combined with enabled curves to
@@ -32,6 +33,7 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var isTakingControl = false
     @Published private(set) var engagedCurveIDs: Set<UUID> = []
     @Published var lastMessage: String?
+    @Published var settings = AppSettings.shared
 
     var sensorReader = SensorReader()
 
@@ -52,14 +54,26 @@ final class DashboardViewModel: ObservableObject {
     private var helperOverrides: [Int: FanOverrideState] = [:]
     private var curveActive: Set<UUID> = []
     private var helperEngaged = false
+    private var didAutoEngage = false
 
     private var monitorTimer: DispatchSourceTimer?
     private var controlTimer: DispatchSourceTimer?
     private var heartbeatTimer: DispatchSourceTimer?
     private var running = false
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         self.installer = HelperInstaller(client: client)
+        // Forward setting changes so anything observing only `vm` (e.g. the
+        // menu-bar widget) repaints when preferences change.
+        settings.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.objectWillChange.send()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     var hasFans: Bool { !fans.isEmpty }
@@ -110,6 +124,16 @@ final class DashboardViewModel: ObservableObject {
 
     func intent(for index: Int) -> FanControlIntent {
         intents[index] ?? .auto
+    }
+
+    /// The sensor shown in the menu-bar widget, from `settings.menuTempSensorKey`.
+    /// Falls back to the CPU sensor, then any sensor.
+    var menuBarTemp: SensorReading? {
+        let key = settings.menuTempSensorKey
+        if !key.isEmpty, let s = sensors.first(where: { $0.key == key }) {
+            return s
+        }
+        return sensors.first { $0.category == .cpu } ?? sensors.first
     }
 
     /// Human-readable summary of the current per-fan intents (for the save sheet).
@@ -185,6 +209,28 @@ final class DashboardViewModel: ObservableObject {
         sensors = sensorReadings
         cpuTemp = cpu
         cpuTempLabel = cpuLabel
+
+        if !didAutoEngage {
+            didAutoEngage = true
+            autoEngagePersistedCurve()
+        }
+    }
+
+    /// Re-engage the curve that was active last session (persisted via
+    /// `isEnabled`), once fan data is available. Only one curve can be
+    /// engaged at a time, so `first(where:)` is the single source of truth.
+    private func autoEngagePersistedCurve() {
+        guard let curve = curveStore.curves.first(where: { $0.isEnabled }) else { return }
+        let valid = curve.fanIndices.allSatisfy { f in fans.contains { $0.index == f } }
+        if valid {
+            engageCurve(curve)
+        } else {
+            // Stale curve (e.g. saved on a machine with more fans): clear it
+            // rather than leaving it "engaged" but inert.
+            var copy = curve
+            copy.isEnabled = false
+            curveStore.update(copy)
+        }
     }
 
     func refreshNowSync() {
@@ -270,17 +316,19 @@ final class DashboardViewModel: ObservableObject {
     }
 
     func engageCurve(_ curve: FanCurve) {
-        // Turn off any other intent/curve on the fans this curve targets.
-        for f in curve.fanIndices {
-            intents[f] = .curve(curve.id)
-        }
-        for other in curveStore.curves
-        where other.id != curve.id && other.isEnabled
-            && other.fanIndices.contains(where: curve.fanIndices.contains) {
+        // Only one curve may be engaged globally: release every other one,
+        // then claim this curve's fans.
+        for other in curveStore.curves where other.id != curve.id && other.isEnabled {
             var copy = other
             copy.isEnabled = false
             curveStore.update(copy)
             curveActive.remove(other.id)
+            for f in other.fanIndices where intents[f] == .curve(other.id) {
+                intents[f] = .auto
+            }
+        }
+        for f in curve.fanIndices {
+            intents[f] = .curve(curve.id)
         }
         var copy = curve
         copy.isEnabled = true

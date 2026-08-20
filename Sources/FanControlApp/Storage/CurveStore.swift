@@ -18,7 +18,8 @@ final class CurveStore: ObservableObject {
 
     @discardableResult
     func add(name: String, fanIndices: [Int], sensorKey: String, points: [CurvePoint]) -> FanCurve {
-        let curve = FanCurve(name: name, fanIndices: fanIndices, sensorKey: sensorKey, points: points)
+        let curve = FanCurve(name: name, fanIndices: fanIndices,
+                             sensorKey: sensorKey, points: points, isEnabled: false)
         curves.append(curve)
         persist()
         return curve
