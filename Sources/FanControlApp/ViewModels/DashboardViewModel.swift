@@ -315,6 +315,20 @@ final class DashboardViewModel: ObservableObject {
         disengageCurves(onFan: index)
     }
 
+    // MARK: - Whole-bank fan control
+
+    func setAllFanAuto() {
+        for fan in fans { setFanAuto(fan.index) }
+    }
+
+    func setAllFanCustom(rpm: Double) {
+        for fan in fans { setFanCustom(fan.index, rpm: rpm) }
+    }
+
+    func setAllFanFullSpeed() {
+        for fan in fans { setFanFullSpeed(fan.index) }
+    }
+
     func engageCurve(_ curve: FanCurve) {
         // Only one curve may be engaged globally: release every other one,
         // then claim this curve's fans.

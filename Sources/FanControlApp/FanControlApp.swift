@@ -50,7 +50,7 @@ struct DashboardRoot: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 360)
+            .frame(width: 420)
             .padding(.top, 10)
 
             Group {
@@ -59,6 +59,7 @@ struct DashboardRoot: View {
                 case .fans:     FansView(vm: vm)
                 case .curves:   CurvesView(vm: vm)
                 case .presets:  PresetsView(vm: vm)
+                case .settings: SettingsView(vm: vm, settings: .shared)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -74,6 +75,7 @@ enum DashboardTab: String, CaseIterable, Identifiable {
     case fans
     case curves
     case presets
+    case settings
 
     var id: String { rawValue }
 
@@ -83,6 +85,7 @@ enum DashboardTab: String, CaseIterable, Identifiable {
         case .fans:     return "Fans"
         case .curves:   return "Curves"
         case .presets:  return "Presets"
+        case .settings: return "Settings"
         }
     }
 }
